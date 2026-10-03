@@ -445,7 +445,12 @@ body.exporting .sidebar, body.exporting .lookbar, body.exporting .transport { po
   .loop-toggle, .volume { display: none; }
 }
 @media (max-width: 760px) {
+  /* Stacked layout: the page itself scrolls (not the panel), so the panel grows with its content. */
+  html, body { height: auto; min-height: 100%; }
   body { overflow: auto; grid-template-rows: auto 1fr; }
+  .workspace { height: auto; min-height: 0; }
+  .sidebar { height: auto; overflow: visible; }
+  .tab-body { overflow: visible; flex: none; }
   .topbar { flex-wrap: wrap; padding: 8px 12px; height: auto; }
   .workspace { grid-template-columns: 1fr; grid-template-rows: 56vh auto; }
   .stage { order: -1; }
