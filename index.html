@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Visualizer Studio</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4"/>
+        <path d="M9 18v-4M13 21V11M17 19v-6M21 22V10M25 17v-2" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      <span>Visualizer Studio</span>
+    </div>
+    <div class="lookbar">
+      <label for="lookSelect">Look</label>
+      <select id="lookSelect"></select>
+      <button id="btnResetLook" class="btn ghost" type="button" title="Start this look over from scratch">Reset</button>
+      <button id="btnSurprise" class="btn ghost" type="button" title="Random look, palette and motion">Surprise me</button>
+      <span class="sep"></span>
+      <button id="btnSaveLook" class="btn ghost" type="button" title="Save layers, effects and palette to a file you can reuse">Save look</button>
+      <button id="btnLoadLook" class="btn ghost" type="button" title="Open a saved look file">Load look</button>
+      <input type="file" id="lookFile" accept=".json,application/json" hidden>
+    </div>
+    <div class="top-status" id="topStatus"></div>
+  </header>
+
+  <main class="workspace">
+    <aside class="sidebar">
+      <nav class="tabs">
+        <button class="tab active" type="button" data-tab="media">Media</button>
+        <button class="tab" type="button" data-tab="layers">Layers</button>
+        <button class="tab" type="button" data-tab="effects">Effects</button>
+        <button class="tab" type="button" data-tab="export">Export</button>
+      </nav>
+      <div class="tab-body" id="tab-media"></div>
+      <div class="tab-body" id="tab-layers" hidden></div>
+      <div class="tab-body" id="tab-effects" hidden></div>
+      <div class="tab-body" id="tab-export" hidden></div>
+    </aside>
+
+    <section class="stage">
+      <div class="viewport" id="viewport">
+        <div class="frame" id="frame">
+          <canvas id="preview"></canvas>
+          <div class="demo-badge" id="demoBadge">Demo beat · drop your track anywhere to make it react to your music</div>
+          <div class="export-overlay" id="exportOverlay" hidden>
+            <div class="export-card">
+              <div class="export-title" id="exportTitle">Rendering…</div>
+              <canvas id="exportThumb" width="480" height="270"></canvas>
+              <div class="progress"><div class="progress-fill" id="exportFill"></div></div>
+              <div class="export-stats" id="exportStats">Preparing…</div>
+              <div class="export-note">Keep this tab open until it finishes. Other apps are fine.</div>
+              <button class="btn danger" id="btnCancelExport" type="button">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="btn icon play" id="btnPlay" type="button"></button>
+        <div class="time" id="timeLabel">0:00.0 / 0:00.0</div>
+        <canvas class="timeline" id="timeline"></canvas>
+        <label class="loop-toggle" title="When rendering a section, keep the preview looping inside it">
+          <input type="checkbox" id="loopSection"> Loop section
+        </label>
+        <div class="volume" title="Preview volume (doesn’t affect the video)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z" fill="currentColor"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <input type="range" id="volume" min="0" max="1" step="0.01">
+        </div>
+        <select id="previewQuality" title="Preview resolution — the export always renders at full quality">
+          <option value="low">Preview: Low</option>
+          <option value="medium">Preview: Medium</option>
+          <option value="high">Preview: High</option>
+          <option value="full">Preview: Full HD</option>
+        </select>
+      </div>
+    </section>
+  </main>
+
+  <div class="drop-overlay" id="dropOverlay" hidden><div>Drop your track, an image, or a look file</div></div>
+  <div class="toasts" id="toasts"></div>
+
+  <script src="lib/mediabunny.min.js"></script>
+  <script src="js/core/util.js"></script>
+  <script src="js/core/fft.js"></script>
+  <script src="js/core/analysis.js"></script>
+  <script src="js/core/assets.js"></script>
+  <script src="js/gl/glutil.js"></script>
+  <script src="js/gl/renderer.js"></script>
+  <script src="js/layers/background.js"></script>
+  <script src="js/layers/blobs.js"></script>
+  <script src="js/layers/grid.js"></script>
+  <script src="js/layers/polygons.js"></script>
+  <script src="js/layers/metaballs.js"></script>
+  <script src="js/layers/vortex.js"></script>
+  <script src="js/layers/spectrum.js"></script>
+  <script src="js/layers/particles.js"></script>
+  <script src="js/layers/image.js"></script>
+  <script src="js/layers/text.js"></script>
+  <script src="js/layers/zoom.js"></script>
+  <script src="js/layers/kaleido.js"></script>
+  <script src="js/layers/masks.js"></script>
+  <script src="js/project.js"></script>
+  <script src="js/presets.js"></script>
+  <script src="js/ui/controls.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/ui/app.js"></script>
+</body>
+</html>
