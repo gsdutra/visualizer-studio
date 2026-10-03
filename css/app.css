@@ -337,8 +337,10 @@ p.muted.small { margin: 8px 0 0; line-height: 1.45; }
 .val-edit { width: 84px; padding: 2px 6px !important; font-size: 12px; text-align: right; }
 .hint { color: var(--faint); font-size: 11.5px; margin-top: 4px; }
 
-.ctl-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; }
-.ctl-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+/* The real checkbox sits invisibly on top of its switch: it must stay inside the label, or it ends
+   up far down the page and clicking a switch scrolls the whole page into empty space. */
+.ctl-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; position: relative; }
+.ctl-toggle input { position: absolute; left: 0; top: 50%; width: 30px; height: 17px; margin: 0; transform: translateY(-50%); opacity: 0; pointer-events: none; }
 .switch { width: 30px; height: 17px; border-radius: 17px; background: var(--line-2); position: relative; flex: none; transition: background 0.15s; }
 .switch::after { content: ""; position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; background: #e9eaee; transition: transform 0.15s; }
 .ctl-toggle input:checked + .switch { background: var(--accent); }

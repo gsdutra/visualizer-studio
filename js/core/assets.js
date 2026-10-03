@@ -1,5 +1,5 @@
 'use strict';
-// Per-video media: images in three slots (cover art, logo, background) and fonts.
+// Per-video media: images in four slots (cover art, logo, background, 3D texture) and fonts.
 // Nothing here is uploaded anywhere — files are read locally by the browser.
 (function (VG) {
   const U = VG.util;
@@ -8,11 +8,12 @@
     cover: 'Cover art',
     logo: 'Logo',
     background: 'Background image',
+    texture: '3D texture',
   };
 
   const assets = {
     SLOTS,
-    images: { cover: null, logo: null, background: null },
+    images: { cover: null, logo: null, background: null, texture: null },
 
     async setImage(slot, blob, name) {
       const { img, url, w, h } = await U.loadImage(blob);

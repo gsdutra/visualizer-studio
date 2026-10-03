@@ -33,6 +33,7 @@
     vortex: svg('<path d="M12 12c0-1.5 2-1.8 2.6-.4.9 2-1.2 3.9-3.3 3.4-2.9-.7-3.3-4.3-1.3-6.1 2.6-2.3 6.8-1.2 7.8 2.1 1.2 3.9-1.8 7.6-5.7 7.5-4.6-.1-7.7-4.6-6.6-9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'),
     kaleido: svg('<path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z M12 3v18 M4.2 7.5l15.6 9 M19.8 7.5l-15.6 9" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>'),
     masks: svg('<path d="M9 4.5l6.5 11.2H2.5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="15" cy="13.5" r="5.5" fill="currentColor" opacity=".55"/>'),
+    flight: svg('<path d="M2 19l6-7 4 4 3-3 7 6z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 4l1.6 3.4L17 9l-3.4 1.6L12 14l-1.6-3.4L7 9l3.4-1.6z" fill="currentColor"/>'),
   };
 
   // ---------------------------------------------------------------- audio playback

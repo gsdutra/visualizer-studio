@@ -21,7 +21,7 @@
     multiply: (gl) => gl.blendFunc(gl.DST_COLOR, gl.ONE_MINUS_SRC_ALPHA),
   };
 
-  const FALLBACK = { background: ['cover'], cover: ['logo'], logo: ['cover'] };
+  const FALLBACK = { background: ['cover'], cover: ['logo'], logo: ['cover'], texture: ['background', 'cover'] };
 
   const BLEND_ID = { normal: 0, add: 1, screen: 2, multiply: 3 };
 
@@ -208,6 +208,7 @@ void main() {
       this.pal = [];
       this.sceneB = null;
       this.persist = new Map();
+      this.offscreens = new Map();
       this.frameNo = 0;
       this.view = IDENT;
       this.turning = false;
@@ -238,6 +239,8 @@ void main() {
         GL.deleteTarget(gl, e.b);
       }
       this.persist.clear();
+      for (const e of this.offscreens.values()) GL.deleteMrtTarget(gl, e.t);
+      this.offscreens.clear();
       this.sceneB = null;
       this.trailA = this.trailB = null;
       this.scene = this._sceneTarget();
@@ -330,10 +333,25 @@ void main() {
       return e;
     }
 
-    drawTo(target, prog, uniforms) {
+    drawTo(target, prog, uniforms, blend = null, instances = 0) {
       this._bind(target);
-      this.draw(prog, uniforms, null);
+      this.draw(prog, uniforms, blend, 1, instances);
       this._bind(this.scene);
+    }
+
+    // A layer's own off-screen buffer (color + distance) of a given size, kept across frames.
+    offscreen(key, w, h) {
+      let e = this.offscreens.get(key);
+      if (e && (e.t.w !== w || e.t.h !== h)) {
+        GL.deleteMrtTarget(this.gl, e.t);
+        e = null;
+      }
+      if (!e) {
+        e = { t: GL.mrtTarget(this.gl, w, h, this.hdr) };
+        this.offscreens.set(key, e);
+      }
+      e.frame = this.frameNo;
+      return e.t;
     }
 
     // Beat events for a binding at the current time: { count, last }.
@@ -539,6 +557,12 @@ void main() {
           this.persist.delete(id);
         }
       }
+      for (const [key, e] of this.offscreens) {
+        if (e.frame < this.frameNo - 600) {
+          GL.deleteMrtTarget(gl, e.t);
+          this.offscreens.delete(key);
+        }
+      }
       this._post(F);
     }
 
@@ -670,6 +694,7 @@ void main() {
           GL.deleteTarget(gl, e.a);
           GL.deleteTarget(gl, e.b);
         }
+        for (const e of this.offscreens.values()) GL.deleteMrtTarget(gl, e.t);
         for (const e of this.imageTex.values()) gl.deleteTexture(e.tex);
         for (const e of this.dataTex.values()) gl.deleteTexture(e.tex);
         this._clearCachedTex();

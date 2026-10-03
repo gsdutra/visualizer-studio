@@ -23,7 +23,7 @@ void main() {
 precision highp float;
 precision highp int;
 in vec2 vUv;
-out vec4 outColor;
+layout(location = 0) out vec4 outColor;
 uniform vec2 uRes;
 uniform float uOpacity;
 uniform vec2 uView;
@@ -204,6 +204,34 @@ vec4 finishEffect(vec3 orig, vec4 eff) {
       throw new Error('Could not create a render target');
     }
     return { fb, tex, w, h };
+  };
+
+  // Off-screen buffer with two outputs: color (location 0) and a second "data" texture
+  // (location 1, e.g. distance). `both` draws into the two, `color` into the color only, so
+  // the data texture can be read while adding more to the color.
+  GL.mrtTarget = (gl, w, h, hdr) => {
+    const internal = hdr ? gl.RGBA16F : gl.RGBA8;
+    const type = hdr ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE;
+    const colorTex = GL.texture(gl, w, h, { internal, type });
+    const dataTex = GL.texture(gl, w, h, { internal, type, filter: gl.NEAREST });
+    const fbBoth = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbBoth);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTex, 0);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, dataTex, 0);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+    const fbColor = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbColor);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    return { both: { fb: fbBoth, w, h }, color: { fb: fbColor, w, h }, colorTex, dataTex, w, h };
+  };
+
+  GL.deleteMrtTarget = (gl, t) => {
+    if (!t) return;
+    gl.deleteFramebuffer(t.both.fb);
+    gl.deleteFramebuffer(t.color.fb);
+    gl.deleteTexture(t.colorTex);
+    gl.deleteTexture(t.dataTex);
   };
 
   GL.deleteTarget = (gl, t) => {

@@ -35,7 +35,10 @@
   function build(container, groups, target, ctx) {
     container.textContent = '';
     const entries = [];
+    const groupEls = [];
     const refresh = () => {
+      // Whole groups can be hidden too (e.g. tunnel settings while flying over a landscape).
+      for (const ge of groupEls) ge.el.hidden = !ge.show(ctx.view(ge.obj));
       for (const e of entries) {
         const view = ctx.view(e.obj);
         e.el.hidden = !!(e.item.show && !e.item.show(view));
@@ -74,6 +77,7 @@
       }
       details.append(body);
       container.append(details);
+      if (g.show) groupEls.push({ el: details, show: g.show, obj });
     }
     refresh();
     return { refresh };
