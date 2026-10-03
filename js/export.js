@@ -139,7 +139,8 @@
   }
 
   async function run(opts) {
-    const { project, assets, analysis, audioBuffer, range, fileHandle, signal, onProgress, onFrame } = opts;
+    const { project, assets, analysis, audioBuffer, range, signal, onProgress, onFrame } = opts;
+    let { fileHandle } = opts;
     const ex = project.export;
     const [W, H] = dims(ex);
     const fps = ex.fps;
@@ -157,7 +158,18 @@
     audio = await resample(audio, ac.sampleRate);
     const primingDelay = await measureEncoderDelay(ac, channels);
 
-    const target = fileHandle ? new Mediabunny.StreamTarget(await fileHandle.createWritable(), { chunked: true }) : new Mediabunny.BufferTarget();
+    // Some browsers (and embedded browser panes) let you pick a file but not write to it:
+    // fall back to building the video in memory and downloading it at the end.
+    let writable = null;
+    if (fileHandle) {
+      try {
+        writable = await fileHandle.createWritable();
+      } catch (e) {
+        console.warn('Cannot write to the chosen file, downloading instead:', e);
+        fileHandle = null;
+      }
+    }
+    const target = writable ? new Mediabunny.StreamTarget(writable, { chunked: true }) : new Mediabunny.BufferTarget();
     const output = new Mediabunny.Output({
       format: new Mediabunny.Mp4OutputFormat({ fastStart: fileHandle ? false : 'in-memory' }),
       target,
