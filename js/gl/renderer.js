@@ -550,7 +550,9 @@ void main() {
       let src = this.scene;
 
       const tr = fx.trails;
-      if (tr.enabled && tr.length > 0.001) {
+      // Trail length can grow with the music (e.g. longer smears on the bass).
+      const trailLen = tr.length + (tr.lengthReact || 0) * A.value(tr.react, t);
+      if (tr.enabled && trailLen > 0.001) {
         if (!this.trailA) {
           this.trailA = GL.target(gl, this.w, this.h, this.hdr);
           this.trailB = GL.target(gl, this.w, this.h, this.hdr);
@@ -563,7 +565,7 @@ void main() {
           {
             uCur: this.scene.tex,
             uPrev: this.trailA.tex,
-            uDecay: this.trailsValid && !F.reset ? Math.exp(-dt / tr.length) : 0,
+            uDecay: this.trailsValid && !F.reset ? Math.exp(-dt / trailLen) : 0,
             uZoom: Math.exp(tr.zoom * dt),
             uRot: tr.rotate * U.DEG * dt,
             uAspect: this.w / this.h,

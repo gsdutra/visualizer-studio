@@ -26,7 +26,7 @@
     chroma: { amount: 0, react: B('kick', { release: 0.15, threshold: 0.5 }), reactAmount: 0 },
     glitch: { amount: 0, react: B('snare', { release: 0.12 }), reactAmount: 0 },
     flash: { color: '#ffffff', amount: 0, react: B('kick', { release: 0.12, threshold: 0.5 }), reactAmount: 0 },
-    trails: { enabled: false, length: 0.25, zoom: 0.15, rotate: 0 },
+    trails: { enabled: false, length: 0.25, zoom: 0.15, rotate: 0, react: B('bass', { release: 0.3 }), lengthReact: 0 },
     color: { brightness: 1, contrast: 1, saturation: 1, hue: 0, hueSpeed: 0 },
     vignette: { amount: 0.35, softness: 0.5 },
     grain: { amount: 0.03, size: 1.5 },
@@ -110,6 +110,8 @@
       items: [
         { key: 'enabled', type: 'toggle', label: 'Enabled', rerender: true },
         { key: 'length', type: 'range', label: 'Trail length', min: 0.02, max: 2, step: 0.01, fmt: 's', show: (o) => o.enabled },
+        { key: 'react', type: 'binding', label: 'Listens to', show: (o) => o.enabled },
+        { key: 'lengthReact', type: 'range', label: 'Longer trails when loud', min: 0, max: 3, step: 0.01, fmt: 's', show: (o) => o.enabled, hint: () => 'Added to the trail length at full loudness' },
         { key: 'zoom', type: 'range', label: 'Zoom drift (tunnel feel)', min: -1, max: 1, step: 0.01, show: (o) => o.enabled },
         { key: 'rotate', type: 'range', label: 'Rotation drift', min: -90, max: 90, step: 1, fmt: 'degs', show: (o) => o.enabled },
       ],

@@ -1146,6 +1146,7 @@
     generate.push(
       h('div', { class: 'summary', id: 'exportSummary' }),
       h('button', { class: 'btn primary big', id: 'btnExport', type: 'button', onclick: startExport }, 'Generate video'),
+      h('button', { class: 'btn danger big', id: 'btnStopExport', type: 'button', hidden: true, onclick: () => app.exportAbort && app.exportAbort.abort() }, 'Stop rendering'),
       h('div', { id: 'supportNotes' })
     );
     root.append(section('Generate', generate));
@@ -1199,6 +1200,8 @@
       );
     }
     $('btnExport').disabled = !app.audio || app.exporting;
+    $('btnExport').hidden = !!app.exporting;
+    $('btnStopExport').hidden = !app.exporting;
   }
 
   function renderSupport() {
@@ -1227,6 +1230,19 @@
     }
     app.support = notes;
     renderSupport();
+  }
+
+  // Real full screen when the browser allows it; embedded browsers (like an app's browser pane)
+  // may silently refuse, so fall back to filling the window.
+  function toggleFullscreen() {
+    const frame = $('frame');
+    if (document.fullscreenElement) return void document.exitFullscreen();
+    if (frame.classList.contains('window-fill')) return void frame.classList.remove('window-fill');
+    const fallback = () => {
+      if (!document.fullscreenElement) frame.classList.add('window-fill');
+    };
+    if (!document.fullscreenEnabled || !frame.requestFullscreen) return fallback();
+    frame.requestFullscreen().then(() => setTimeout(fallback, 250), fallback);
   }
 
   function suggestedName() {
@@ -1273,6 +1289,7 @@
     if (!fileHandle && est > 1.8e9 && !confirm(`This video will be about ${U.fmtBytes(est)} and has to fit in memory before downloading. Continue?`)) return;
 
     app.exporting = true;
+    refreshExportInfo();
     app.player.pause();
     document.body.classList.add('exporting');
     const [W, H] = VG.exporter.dims(ex);
@@ -1329,6 +1346,7 @@
       }
     } finally {
       app.exporting = false;
+      refreshExportInfo();
       app.exportAbort = null;
       document.body.classList.remove('exporting');
       $('exportOverlay').hidden = true;
@@ -1487,6 +1505,11 @@
         if (tag === 'button') return;
         e.preventDefault();
         togglePlay();
+      } else if (e.key === 'Escape' && $('frame').classList.contains('window-fill')) {
+        $('frame').classList.remove('window-fill');
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
       } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && tag !== 'input') {
         e.preventDefault();
         const step = e.shiftKey ? 1 : 5;
@@ -1527,6 +1550,7 @@
 
     $('btnPlay').addEventListener('click', togglePlay);
     $('btnCancelExport').addEventListener('click', () => app.exportAbort && app.exportAbort.abort());
+    $('btnFullscreen').addEventListener('click', toggleFullscreen);
     const vol = $('volume');
     vol.value = app.player.volume;
     vol.addEventListener('input', () => app.player.setVolume(Number(vol.value)));

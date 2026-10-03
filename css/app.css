@@ -397,9 +397,21 @@ p.muted.small { margin: 8px 0 0; line-height: 1.45; }
   background: rgba(6, 7, 9, 0.82);
   backdrop-filter: blur(4px);
 }
+.fs-btn {
+  position: absolute; right: 10px; bottom: 10px; width: 34px; height: 34px; display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: rgba(0, 0, 0, 0.45); color: #fff; cursor: pointer; opacity: 0; transition: opacity 0.15s;
+}
+.frame:hover .fs-btn, .fs-btn:focus-visible { opacity: 1; }
+.frame.window-fill { position: fixed !important; inset: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 1000; background: #000; border-radius: 0; margin: 0 !important; transform: none !important; }
+.frame.window-fill canvas#preview { object-fit: contain; }
+.frame.window-fill .demo-badge { display: none; }
+.frame:fullscreen { width: 100vw !important; height: 100vh !important; background: #000; border-radius: 0; }
+.frame:fullscreen canvas#preview { object-fit: contain; }
+.frame:fullscreen .demo-badge { display: none; }
+.export-overlay { overflow: auto; }
 .export-card { width: min(520px, 92%); text-align: center; display: grid; gap: 12px; justify-items: center; padding: 18px; }
 .export-title { font-weight: 650; font-size: 15px; }
-#exportThumb { max-width: 100%; max-height: 42vh; border-radius: 6px; background: #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
+#exportThumb { max-width: 100%; max-height: min(42vh, 45%); border-radius: 6px; background: #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
 .export-card .progress { width: 100%; }
 .export-stats { font-variant-numeric: tabular-nums; color: #d5d8df; font-size: 12.5px; }
 .export-note { color: var(--muted); font-size: 12px; }
