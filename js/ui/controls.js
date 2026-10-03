@@ -13,6 +13,7 @@
     ms: (v) => Math.round(v) + ' ms',
     deg: (v) => Math.round(v) + '°',
     degs: (v) => Math.round(v) + '°/s',
+    degmin: (v) => Math.round(v) + '°/min',
     hz: (v) => (v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 1 : 2) + ' kHz' : Math.round(v) + ' Hz'),
     int: (v) => String(Math.round(v)),
   };

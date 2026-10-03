@@ -3,6 +3,8 @@
 // act as windows, and each window shows a fragment of the video below it, transformed:
 // mirrored, upside down, rotated, zoomed, taken from elsewhere, color-shifted or negative.
 // On beats the shapes can snap-rotate and/or reshuffle what they show.
+// "Slow drifters" are rare, long-lived shapes: each fades in at a random moment and keeps
+// drifting until it has left the screen.
 (function (VG) {
   const U = VG.util;
   const B = VG.analysis.binding;
@@ -32,7 +34,6 @@ float shapeSd(vec2 q, float type, float r) {
 
 void main() {
   vec2 p = P();
-  vec2 h = HALF();
   float px = PX();
   vec4 acc = vec4(0.0, 0.0, 0.0, uDim);
   for (int i = 0; i < 16; i++) {
@@ -56,7 +57,7 @@ void main() {
       if (mod(floor(flags * 0.5), 2.0) >= 1.0) fq.y = -fq.y;
       fq = rot(S.z) * fq / S.w;
       vec2 sp = A.xy + rot(A.w) * fq + C.xy;
-      vec3 frag = texture(uScene, sp / (2.0 * h) + 0.5).rgb;
+      vec3 frag = texture(uScene, SUV(sp)).rgb;
       if (mod(floor(flags * 0.25), 2.0) >= 1.0) frag = vec3(1.0) - clamp(frag, 0.0, 1.0);
       if (mod(floor(flags * 0.125), 2.0) >= 1.0) {
         float l = dot(frag, vec3(0.299, 0.587, 0.114));
@@ -97,8 +98,120 @@ void main() {
 
   const isShards = (L) => L.composition === 'shards';
   const isPopups = (L) => L.composition === 'popups';
+  const isDrifters = (L) => L.composition === 'drifters';
+  const bigShapes = (L) => isPopups(L) || isDrifters(L);
   const beats = (L) => L.beatMode !== 'calm';
   const snaps = (L) => L.beatMode === 'snap' || L.beatMode === 'both';
+
+  // Slow drifters arrive at random moments: on average one every `every` seconds, so two can
+  // come close together or a long gap can pass. The schedule is worked out from the layer's
+  // seed, so the preview, the export and any section render show the same shapes. At most
+  // `count` are on screen at once; a shape arriving when the screen is full waits for one to leave.
+  const schedules = new Map();
+  function driftSchedule(L, seed, until) {
+    const every = Math.max(0.5, L.every);
+    const lo = Math.max(1, Math.min(L.lifeMin, L.lifeMax));
+    const hi = Math.max(lo, L.lifeMin, L.lifeMax);
+    const cap = U.clamp(L.count | 0, 1, 16);
+    const key = [seed, every, lo, hi, cap].join('|');
+    let s = schedules.get(L.id);
+    if (!s || s.key !== key) {
+      const rnd = U.rng(seed + 77);
+      s = { key, rnd, hi, list: [], next: (0.1 + 0.9 * rnd()) * every };
+      schedules.set(L.id, s);
+    }
+    while (s.next <= until) {
+      let start = s.next;
+      const ends = [];
+      for (const m of s.list) if (m.end > start) ends.push(m.end);
+      if (ends.length >= cap) start = ends.sort((a, b) => a - b)[ends.length - cap];
+      const life = lo + (hi - lo) * s.rnd();
+      s.list.push({ j: s.list.length, start, life, end: start + life });
+      const gap = -Math.log(1 - 0.9999 * s.rnd()) * every;
+      s.next = start + U.clamp(gap, Math.min(1, every / 4), every * 4);
+    }
+    return s;
+  }
+
+  function activeDrifters(L, seed, t) {
+    const s = driftSchedule(L, seed, t);
+    const out = [];
+    for (let k = s.list.length - 1; k >= 0 && out.length < 16; k--) {
+      const m = s.list[k];
+      if (m.start > t) continue;
+      if (m.start < t - s.hi) break;
+      if (t < m.end) out.push(m);
+    }
+    return out.reverse();
+  }
+
+  // A drifter appears somewhere on screen and moves in a straight line (in picture coordinates,
+  // which turn with the spin) just far enough to be fully off-screen when its time is up.
+  function drifterPath(R, L, m, q, c, base) {
+    const [hx, hy] = R.half;
+    const a0 = R.angleAt(m.start);
+    const c0 = Math.cos(a0);
+    const s0 = Math.sin(a0);
+    // Birth spot on screen. When the picture turns a lot during a shape's life, it starts
+    // nearer the middle, so the turning alone can't carry it off-screen too early.
+    const turn = U.clamp(Math.abs(R.angleAt(m.end) - a0) / (Math.PI / 3), 0, 1);
+    const rr = Math.sqrt(q(3)) * Math.min(hx, hy);
+    const ra = q(4) * Math.PI * 2;
+    const sx = U.lerp((q(3) * 2 - 1) * hx, Math.cos(ra) * rr, turn) * L.spread * 0.75;
+    const sy = U.lerp((q(4) * 2 - 1) * hy, Math.sin(ra) * rr, turn) * L.spread * 0.75;
+    const x = c[0] + c0 * sx + s0 * sy;
+    const y = c[1] - s0 * sx + c0 * sy;
+    const outward = L.direction !== 'random' && Math.hypot(x - c[0], y - c[1]) > 0.06;
+    const aim = outward ? Math.atan2(y - c[1], x - c[0]) + (q(8) - 0.5) * 1.2 : q(9) * Math.PI * 2;
+    const reach = base * 1.12 * (1 + L.pulse) + L.stroke + 0.15 * L.glow + 0.01;
+    // How the picture is turned at a few moments of the shape's life.
+    const N = 24;
+    const rot = new Float64Array(2 * N + 2);
+    for (let k = 0; k <= N; k++) {
+      const a = R.angleAt(m.start + (k / N) * m.life);
+      rot[2 * k] = Math.cos(a);
+      rot[2 * k + 1] = Math.sin(a);
+    }
+    const tryDir = (dir) => {
+      const dx = Math.cos(dir);
+      const dy = Math.sin(dir);
+      // Travel needed to be fully off-screen at the end, where the picture has turned to by then.
+      const ce = rot[2 * N];
+      const se = rot[2 * N + 1];
+      const ex = ce * x - se * y;
+      const ey = se * x + ce * y;
+      const vx = ce * dx - se * dy;
+      const vy = se * dx + ce * dy;
+      let D = 6;
+      if (Math.abs(vx) > 1e-6) D = Math.min(D, ((vx > 0 ? 1 : -1) * (hx + reach) - ex) / vx);
+      if (Math.abs(vy) > 1e-6) D = Math.min(D, ((vy > 0 ? 1 : -1) * (hy + reach) - ey) / vy);
+      D = Math.max(0.3, D);
+      // Score = how much of its life it stays on screen (the turning picture can sweep it
+      // out early), with a penalty if it slips back in after leaving.
+      let gone = 1;
+      let back = false;
+      for (let k = 1; k < N; k++) {
+        const u = k / N;
+        const kk = D * (0.4 * u + 0.6 * u * u);
+        const wx = x + dx * kk;
+        const wy = y + dy * kk;
+        const px = rot[2 * k] * wx - rot[2 * k + 1] * wy;
+        const py = rot[2 * k + 1] * wx + rot[2 * k] * wy;
+        const r = base * (1 + 0.12 * u);
+        const depth = Math.min(hx + r - Math.abs(px), hy + r - Math.abs(py));
+        if (depth < 0 && gone === 1) gone = u;
+        else if (depth > 0.02 && gone < 1) back = true;
+      }
+      return { x, y, dx, dy, D, score: gone - (back ? 0.5 : 0) };
+    };
+    let best = null;
+    for (const tilt of [0, 0.5, -0.5, 1, -1]) {
+      const p = tryDir(aim + tilt);
+      if (p.score >= 0.95) return p;
+      if (!best || p.score > best.score) best = p;
+    }
+    return best;
+  }
 
   VG.registerLayer({
     type: 'masks',
@@ -122,6 +235,11 @@ void main() {
       size: 0.2,
       minSize: 0.25,
       life: 3,
+      every: 10,
+      lifeMin: 20,
+      lifeMax: 30,
+      fadeIn: 3,
+      direction: 'outward',
       outline: 0.03,
       spread: 0.8,
       x: 0,
@@ -162,6 +280,7 @@ void main() {
             rerender: true,
             options: [
               ['popups', 'Random pop-ups (psychedelic)'],
+              ['drifters', 'Slow drifters (now and then, drifting off-screen)'],
               ['constellation', 'Constellation (scattered shapes)'],
               ['concentric', 'Concentric (nested shapes)'],
               ['grid', 'Mosaic grid'],
@@ -179,16 +298,21 @@ void main() {
           },
           ...MIX.map(([key, , label]) => ({ key, type: 'toggle', label: `Mix in ${label.toLowerCase()}`, show: (L) => !isShards(L) && L.shape === 'mixed' })),
           { key: 'style', type: 'select', label: 'Filled or outlines', show: (L) => !isShards(L), options: [['mixed', 'Mixed'], ['filled', 'Filled'], ['outline', 'Outlines only']] },
-          { key: 'count', type: 'range', label: (L) => (isPopups(L) ? 'How many at once' : 'How many'), min: 1, max: 16, step: 1, fmt: 'int' },
-          { key: 'size', type: 'range', label: (L) => (isShards(L) ? 'Band width' : isPopups(L) ? 'Biggest size' : 'Size'), min: 0.02, max: 1.5, step: 0.005 },
-          { key: 'minSize', type: 'range', label: 'Smallest size (of the biggest)', min: 0.05, max: 1, step: 0.01, fmt: 'pct', show: isPopups },
+          { key: 'count', type: 'range', label: (L) => (isPopups(L) ? 'How many at once' : isDrifters(L) ? 'Most on screen at once' : 'How many'), min: 1, max: 16, step: 1, fmt: 'int' },
+          { key: 'size', type: 'range', label: (L) => (isShards(L) ? 'Band width' : bigShapes(L) ? 'Biggest size' : 'Size'), min: 0.02, max: 1.5, step: 0.005 },
+          { key: 'minSize', type: 'range', label: 'Smallest size (of the biggest)', min: 0.05, max: 1, step: 0.01, fmt: 'pct', show: bigShapes },
           { key: 'life', type: 'range', label: 'How long each shape stays', min: 0.4, max: 12, step: 0.1, fmt: 's', show: isPopups },
+          { key: 'every', type: 'range', label: 'A new shape every (on average)', min: 1, max: 60, step: 0.5, fmt: 's', show: isDrifters, hint: () => 'Random timing: sometimes two come close together, sometimes there is a long gap.' },
+          { key: 'lifeMin', type: 'range', label: 'Shortest time on screen', min: 2, max: 90, step: 0.5, fmt: 's', show: isDrifters },
+          { key: 'lifeMax', type: 'range', label: 'Longest time on screen', min: 2, max: 90, step: 0.5, fmt: 's', show: isDrifters },
+          { key: 'fadeIn', type: 'range', label: 'Fade-in', min: 0, max: 10, step: 0.1, fmt: 's', show: isDrifters },
+          { key: 'direction', type: 'select', label: 'Drift direction', show: isDrifters, options: [['outward', 'Outward from the center'], ['random', 'Random directions']] },
           { key: 'outline', type: 'range', label: 'Outline thickness', min: 0.003, max: 0.25, step: 0.001, show: (L) => !isShards(L) && L.style !== 'filled' },
-          { key: 'spread', type: 'range', label: (L) => (L.composition === 'orbit' ? 'Orbit size' : 'Spread'), min: 0, max: 1.5, step: 0.01, show: (L) => ['popups', 'constellation', 'orbit', 'shards'].includes(L.composition) },
+          { key: 'spread', type: 'range', label: (L) => (L.composition === 'orbit' ? 'Orbit size' : 'Spread'), min: 0, max: 1.5, step: 0.01, show: (L) => ['popups', 'drifters', 'constellation', 'orbit', 'shards'].includes(L.composition) },
           { key: 'x', type: 'range', label: 'Center X', min: -1, max: 1, step: 0.005 },
           { key: 'y', type: 'range', label: 'Center Y', min: -1, max: 1, step: 0.005 },
-          { key: 'rotation', type: 'range', label: (L) => (isShards(L) ? 'Band angle' : 'Rotation'), min: -180, max: 180, step: 1, fmt: 'deg' },
-          { key: 'spin', type: 'range', label: 'Spin', min: -90, max: 90, step: 0.5, fmt: 'degs' },
+          { key: 'rotation', type: 'range', label: (L) => (isShards(L) ? 'Band angle' : 'Rotation'), min: -180, max: 180, step: 1, fmt: 'deg', show: (L) => !bigShapes(L) },
+          { key: 'spin', type: 'range', label: (L) => (bigShapes(L) ? 'Each shape turns (up to)' : 'Spin'), min: -90, max: 90, step: 0.5, fmt: 'degs' },
           { key: 'drift', type: 'range', label: 'Drift', min: 0, max: 4, step: 0.05, fmt: 'x', show: (L) => L.composition === 'constellation' },
         ],
       },
@@ -242,7 +366,10 @@ void main() {
     ],
     render(R, L, F) {
       const t = F.t;
-      const n = U.clamp(L.count | 0, 1, 16);
+      const seed = R.seedOf(L);
+      const drifters = isDrifters(L) ? activeDrifters(L, seed, t) : null;
+      const n = drifters ? drifters.length : U.clamp(L.count | 0, 1, 16);
+      if (!n && !(L.dim > 0)) return;
       const pulse = 1 + L.pulse * R.val(L.react);
       const snapOn = snaps(L);
       const shuffleOn = L.beatMode === 'shuffle' || L.beatMode === 'both';
@@ -265,13 +392,15 @@ void main() {
       const hx = R.half[0];
       const hy = R.half[1];
       const spin = (L.rotation + L.spin * t) * U.DEG;
-      const seed = R.seedOf(L);
       const fixed = L.shape === 'mixed' ? null : L.shape;
       const pickShape = (v) => fixed || mix[Math.floor(v * mix.length) % mix.length];
       const cols = Math.max(1, Math.round(Math.sqrt((n * hx) / hy)));
       const rows = Math.max(1, Math.ceil(n / cols));
       for (let i = 0; i < n; i++) {
-        const r = (k) => U.hash3(seed, i, k);
+        // Drifters keep their identity (look, path, content) from the schedule.
+        const m = drifters ? drifters[i] : null;
+        const id = m ? m.j : i;
+        const r = (k) => U.hash3(seed, id, k);
         let type = pickShape(r(1));
         let outlineW = L.style === 'filled' ? 0 : L.style === 'outline' ? L.outline : r(2) < 0.5 ? L.outline : 0;
         let x = c[0];
@@ -299,6 +428,24 @@ void main() {
           y = c[1] + (q(4) * 2 - 1) * hy * L.spread;
           size = L.size * sz * pulse * (0.9 + 0.1 * alpha + 0.12 * life);
           ang = q(6) * Math.PI * 2 + (q(7) - 0.5) * 2 * L.spin * U.DEG * life * span;
+        } else if (m) {
+          // Fades in somewhere on screen, then drifts (slowly at first, a little faster as
+          // it leaves) until it's fully off-screen right when its time is up.
+          const q = (k) => U.hash3(seed + 7919, id, k);
+          const age = t - m.start;
+          life = U.clamp(age / m.life, 0, 1);
+          type = pickShape(q(1));
+          const sz = L.minSize + (1 - L.minSize) * Math.pow(q(5), 1.4);
+          outlineW = L.style === 'filled' ? 0 : L.style === 'outline' || q(2) < 0.5 ? L.outline * (0.5 + sz) : 0;
+          const path = drifterPath(R, L, m, q, c, L.size * sz);
+          const k = path.D * (0.4 * life + 0.6 * life * life);
+          x = path.x + path.dx * k;
+          y = path.y + path.dy * k;
+          // Fade in gently: barely there at first, fully visible after `fadeIn` seconds.
+          const fade = U.smoothstep(0, Math.max(0.05, L.fadeIn), age);
+          alpha = fade * fade * (1 - U.smoothstep(0.97, 1, life));
+          size = L.size * sz * pulse * (0.92 + 0.08 * alpha + 0.12 * life);
+          ang = q(6) * Math.PI * 2 + (q(7) - 0.5) * 2 * L.spin * U.DEG * age;
         } else if (L.composition === 'concentric') {
           if (!fixed) type = pickShape(U.hash3(seed, 0, 1));
           size = L.size * Math.pow(0.72, i) * pulse;
@@ -333,7 +480,7 @@ void main() {
           ang = spin * (r(6) < 0.5 ? -1 : 1) + r(6) * Math.PI * 2;
         }
         if (snapOn) {
-          const step = L.snapAngle * U.DEG * snap * (i % 2 ? -1 : 1);
+          const step = L.snapAngle * U.DEG * snap * (id % 2 ? -1 : 1);
           if (type === 'band') fragRot += step;
           else ang += step;
         }
@@ -343,7 +490,7 @@ void main() {
         let ox = 0;
         let oy = 0;
         let hue = 0;
-        const g = (k) => U.hash3(seed + k + cycle * 131, i, sh);
+        const g = (k) => U.hash3(seed + k + cycle * 131, id, sh);
         const pick = geo.length ? geo[Math.floor(g(17) * geo.length) % geo.length] : null;
         if (pick === 'mirror') flags |= 1;
         else if (pick === 'flip') flags |= 2;
@@ -355,9 +502,9 @@ void main() {
         }
         if (geo.length > 1 && g(41) < 0.3) flags |= flags & 1 ? 2 : 1;
         // Pieces slowly turn and breathe inside their windows.
-        const sway = isPopups(L) ? (life - 0.5) * 2 * (g(43) < 0.5 ? -1 : 1) : Math.sin(t * 0.45 + i * 1.7);
+        const sway = bigShapes(L) ? (life - 0.5) * 2 * (g(43) < 0.5 ? -1 : 1) : Math.sin(t * 0.45 + i * 1.7);
         fragRot += L.animate * sway * 0.6;
-        zoom *= 1 + L.animate * 0.2 * (isPopups(L) ? life : 0.5 + 0.5 * Math.sin(t * 0.6 + i));
+        zoom *= 1 + L.animate * 0.2 * (bigShapes(L) ? life : 0.5 + 0.5 * Math.sin(t * 0.6 + i));
         if (colorTricks.length && g(53) < L.colorChance) {
           const ct = colorTricks[Math.floor(g(59) * colorTricks.length) % colorTricks.length];
           if (ct === 'invert') flags |= 4;
@@ -368,8 +515,8 @@ void main() {
         uB.set([TYPE[type] != null ? TYPE[type] : 0, type === 'band' ? 0 : outlineW, fragRot, zoom], i * 4);
         uC.set([ox, oy, flags, hue], i * 4);
         uD.set([alpha, 0, 0, 0], i * 4);
-        uCol.set(L.strokePalette ? R.palCycle(i) : R.col(L.strokeColor), i * 3);
-        uTint.set(R.palCycle(i + 1 + Math.floor(g(67) * 3)), i * 3);
+        uCol.set(L.strokePalette ? R.palCycle(id) : R.col(L.strokeColor), i * 3);
+        uTint.set(R.palCycle(id + 1 + Math.floor(g(67) * 3)), i * 3);
       }
       R.effect(
         R.program('masks', VG.GL.FS_EFFECT + FS),

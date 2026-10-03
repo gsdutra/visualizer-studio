@@ -82,6 +82,7 @@ void main() {
 
   VG.registerLayer({
     type: 'image',
+    upright: true,
     label: 'Cover art / logo',
     icon: 'image',
     blurb: 'Your cover art or logo, with shape, border, glow and a beat pulse.',

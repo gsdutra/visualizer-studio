@@ -50,7 +50,7 @@ void main() {
     q.x = abs(q.x);
   }
   vec2 sp = rot(uSrcRot) * q / uZoom + uSrc;
-  vec3 col = texture(uScene, sp / (2.0 * HALF()) + 0.5).rgb;
+  vec3 col = texture(uScene, SUV(sp)).rgb;
   if (uSeam > 0.0) {
     float px = PX();
     float line = clamp(0.5 - (seamD - uSeam * 0.5) / px, 0.0, 1.0);

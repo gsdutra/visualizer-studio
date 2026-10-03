@@ -109,6 +109,7 @@ void main() {
 
   VG.registerLayer({
     type: 'text',
+    upright: true,
     label: 'Text',
     icon: 'text',
     blurb: 'Artist and track title (or any text). Use {artist} and {title}.',

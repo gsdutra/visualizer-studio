@@ -65,7 +65,6 @@ float winSd(vec2 q, float r) {
 
 void main() {
   vec2 p = P() - uCenter;
-  vec2 h = HALF();
   float px = PX();
   float z0 = pow(uRatio, -uPhase);
   int level = 0;
@@ -82,7 +81,7 @@ void main() {
   float s = z0 * pow(uRatio, float(level));
   float ang = uSpin + uTwist * (float(level) - uPhase);
   vec2 sp = uCenter + rot(-ang) * p / s;
-  vec3 col = texture(uScene, sp / (2.0 * h) + 0.5).rgb;
+  vec3 col = texture(uScene, SUV(sp)).rgb;
   vec3 orig = texture(uScene, vUv).rgb;
   float hue = uCopyHue * (float(level) - uPhase);
   if (abs(hue) > 1e-4) col = max(hueRotate(col, hue), 0.0);
@@ -198,10 +197,11 @@ void main() {
       const H = R.history(L);
       const dt = U.clamp(F.dt || 0, 0, 0.1);
       const rate = L.speed + L.speedReact * env;
+      const c = R.toScreen(R.pos(L.x, L.y));
       R.drawTo(H.b, R.program('zoom-echo', FS_ECHO), {
         uCur: R.scene.tex,
         uPrev: H.a.tex,
-        uCenter: [0.5 + L.x * 0.5, 0.5 + L.y * 0.5],
+        uCenter: [0.5 + (0.5 * c[0]) / R.half[0], 0.5 + (0.5 * c[1]) / R.half[1]],
         uZoom: Math.pow(2, rate * dt),
         uRot: (L.spin + L.spinReact * env) * U.DEG * dt,
         uDecay: H.valid && dt > 0 ? Math.exp(-dt / Math.max(0.02, L.trail)) : H.valid ? 1 : 0,

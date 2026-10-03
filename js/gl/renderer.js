@@ -25,6 +25,8 @@
 
   const BLEND_ID = { normal: 0, add: 1, screen: 2, multiply: 3 };
 
+  const IDENT = [1, 0];
+
   const FS_PREFILTER = `
 uniform sampler2D uTex;
 uniform vec2 uTexel;
@@ -207,6 +209,9 @@ void main() {
       this.sceneB = null;
       this.persist = new Map();
       this.frameNo = 0;
+      this.view = IDENT;
+      this.turning = false;
+      this.spinRate = 0;
     }
 
     get lost() {
@@ -277,7 +282,7 @@ void main() {
     draw(prog, uniforms, blend = 'normal', opacity = 1, instances = 0) {
       const gl = this.gl;
       gl.useProgram(prog.p);
-      GL.setUniforms(gl, prog, { uRes: [this.vw, this.vh], uOpacity: opacity });
+      GL.setUniforms(gl, prog, { uRes: [this.vw, this.vh], uOpacity: opacity, uView: this.view });
       GL.setUniforms(gl, prog, uniforms);
       if (blend) {
         gl.enable(gl.BLEND);
@@ -469,6 +474,18 @@ void main() {
       return [x * this.half[0], y * this.half[1]];
     }
 
+    // How far the picture has turned at time t (radians, counter-clockwise) for the layer
+    // being drawn: 0 when there's no spin or the layer stays upright.
+    angleAt(t) {
+      return this.turning ? this.spinRate * t : 0;
+    }
+
+    // Picture position (what P() returns in shaders) → where it is on screen right now.
+    toScreen(p) {
+      const [c, s] = this.view;
+      return [c * p[0] - s * p[1], s * p[0] + c * p[1]];
+    }
+
     // ---- frame --------------------------------------------------------------------
     render(F) {
       const gl = this.gl;
@@ -487,6 +504,13 @@ void main() {
         while (this.pal.length < 5) this.pal.push([1, 1, 1]);
       }
 
+      // Whole-picture spin, in degrees per minute (positive = clockwise). It only depends on
+      // the time, so any frame can be rendered on its own.
+      const spin = (F.project.fx.camera && F.project.fx.camera.spin) || 0;
+      this.spinRate = (-spin / 60) * U.DEG;
+      const angle = this.spinRate * F.t;
+      const spinView = [Math.cos(angle), Math.sin(angle)];
+
       this._bind(this.scene);
       gl.disable(gl.BLEND);
       gl.clearColor(0, 0, 0, 1);
@@ -496,6 +520,8 @@ void main() {
         const def = VG.layerTypes[L0.type];
         if (!def) continue;
         const L = F.vertical && L0.v ? Object.assign({}, L0, L0.v) : L0;
+        this.turning = spin !== 0 && !L.upright;
+        this.view = this.turning ? spinView : IDENT;
         try {
           def.render(this, L, F);
         } catch (e) {
@@ -503,6 +529,8 @@ void main() {
           this._bind(this.scene);
         }
       }
+      this.turning = false;
+      this.view = IDENT;
       // Free history buffers of layers that were removed or switched off a while ago.
       for (const [id, e] of this.persist) {
         if (e.frame < this.frameNo - 600) {

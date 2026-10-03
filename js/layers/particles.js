@@ -10,6 +10,8 @@
 precision highp float;
 precision highp int;
 uniform vec2 uRes;
+uniform vec2 uView;
+uniform int uSpinning;
 uniform float uTau;
 uniform float uTime;
 uniform uint uSeed;
@@ -47,6 +49,8 @@ void main() {
   float r4 = rnd(id, 4u);
   float r5 = rnd(id, 5u);
   vec2 hx = 0.5 * uRes / min(uRes.x, uRes.y);
+  // While the picture spins, spread out over the whole circle the frame turns through.
+  vec2 ext = uSpinning == 1 ? vec2(length(hx)) : hx;
   float size = uSize * mix(1.0 - uSizeVar, 1.0 + uSizeVar, r3);
   float sp = mix(0.6, 1.4, r4);
   vec2 pos = vec2(0.0);
@@ -54,7 +58,7 @@ void main() {
   float alpha = 1.0;
   float streak = 0.0;
   if (uMode == 0) {
-    vec2 box = hx * 2.0 + vec2(0.3);
+    vec2 box = ext * 2.0 + vec2(0.3);
     float depth = mix(0.35, 1.0, r3);
     vec2 base = (vec2(r1, r2) - 0.5) * box;
     vec2 perp = vec2(-uDir.y, uDir.x);
@@ -74,19 +78,19 @@ void main() {
     streak = uStreak * 0.15 * life;
   } else if (uMode == 2) {
     float z = mix(0.04, 1.0, fract(r3 - uTau * 0.05 * sp));
-    vec2 xy = (vec2(r1, r2) * 2.0 - 1.0) * hx;
+    vec2 xy = (vec2(r1, r2) * 2.0 - 1.0) * ext;
     pos = uCenter + xy * 0.3 / z;
     dir = normalize(xy + vec2(1e-4));
     size *= 0.2 / z;
     alpha = (1.0 - smoothstep(0.7, 1.0, z)) * smoothstep(0.04, 0.09, z);
     streak = uStreak * 0.02 / z;
   } else {
-    float span = hx.y * 2.0 + 0.3;
-    float y = -hx.y - 0.15 + fract(r2 + uTau * 0.05 * sp) * span;
-    float x = uCenter.x + (r1 - 0.5) * 2.0 * hx.x * uSpread + sin(uTau * 0.8 * sp + r5 * TAU) * uWobble * 0.04;
+    float span = ext.y * 2.0 + 0.3;
+    float y = -ext.y - 0.15 + fract(r2 + uTau * 0.05 * sp) * span;
+    float x = uCenter.x + (r1 - 0.5) * 2.0 * ext.x * uSpread + sin(uTau * 0.8 * sp + r5 * TAU) * uWobble * 0.04;
     pos = vec2(x, y);
     dir = vec2(0.0, 1.0);
-    alpha = smoothstep(-hx.y - 0.15, -hx.y + 0.1, y) * (1.0 - smoothstep(hx.y * 0.2, hx.y + 0.15, y));
+    alpha = smoothstep(-ext.y - 0.15, -ext.y + 0.1, y) * (1.0 - smoothstep(ext.y * 0.2, ext.y + 0.15, y));
     streak = uStreak * 0.03;
   }
   alpha *= mix(1.0, 0.25 + 0.75 * (0.5 + 0.5 * sin(uTime * mix(1.0, 4.0, r5) + r1 * 40.0)), uTwinkle);
@@ -99,7 +103,8 @@ void main() {
   vLen = (streak * 0.5) / s;
   vAlpha = alpha;
   vColor = int(floor(rnd(id, 6u) * 4.0)) % 4;
-  gl_Position = vec4(world / hx, 0.0, 1.0);
+  vec2 screen = vec2(uView.x * world.x - uView.y * world.y, uView.y * world.x + uView.x * world.y);
+  gl_Position = vec4(screen / hx, 0.0, 1.0);
 }`;
 
   const FS = `#version 300 es
@@ -189,8 +194,17 @@ void main() {
       },
     ],
     render(R, L, F) {
-      const count = U.clamp(L.count | 0, 0, 3000);
+      let count = U.clamp(L.count | 0, 0, 3000);
       if (!count) return;
+      if (R.turning && L.mode !== 'burst') {
+        // Spread over a bigger area while spinning: add particles to keep the same density.
+        const [hx, hy] = R.half;
+        const e = Math.hypot(hx, hy);
+        if (L.mode === 'drift') count *= (2 * e + 0.3) ** 2 / ((2 * hx + 0.3) * (2 * hy + 0.3));
+        else if (L.mode === 'rise') count *= (e / hx) * ((2 * e + 0.3) / (2 * hy + 0.3));
+        else count *= (e * e) / (hx * hy);
+        count = Math.round(count);
+      }
       const env = R.val(L.react);
       const tau = F.t * L.speed + L.speedReact * R.integ(L.react);
       const a = L.direction * U.DEG;
@@ -198,6 +212,7 @@ void main() {
       R.draw(
         R.program('particles', FS, VS, true),
         {
+          uSpinning: R.turning ? 1 : 0,
           uTau: tau,
           uTime: F.t,
           uSeed: R.seedOf(L) % 100003,

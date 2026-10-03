@@ -61,6 +61,7 @@ void main() {
 
   VG.registerLayer({
     type: 'background',
+    upright: true,
     label: 'Background',
     icon: 'bg',
     blurb: 'Solid color, gradient, or an image (cover art, photo).',
@@ -126,7 +127,14 @@ void main() {
       const tex = isImage(L) ? R.image(R.asset(L.source), L.blur) : null;
       const w = R.wander(L, 0, R.F.t * 0.35 * L.driftSpeed);
       const panAmt = 0.06 * L.drift;
-      const zoom = Math.max(L.zoom, 1 + panAmt * 2.4) * (1 + L.pulse * env);
+      let zoom = Math.max(L.zoom, 1 + panAmt * 2.4) * (1 + L.pulse * env);
+      if (tex && R.turning) {
+        // A turning photo has to cover the whole circle the frame sweeps through.
+        const [hx, hy] = R.half;
+        const ia = tex.w / tex.h;
+        const minExt = ia > hx / hy ? Math.min(hy * ia, hy) : Math.min(hx, hx / ia);
+        zoom = Math.max(zoom, (Math.hypot(hx, hy) + panAmt * 1.42) / minExt);
+      }
       const mode = { solid: 0, linear: 1, radial: 2, image: 3 }[L.mode] || 0;
       R.draw(
         R.program('background', FS),

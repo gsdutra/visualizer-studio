@@ -15,6 +15,10 @@ void main() {
   // Shared fragment-shader prelude. Coordinates ("p-space"): origin at the frame center,
   // y up, and the *shorter* side of the frame spans -0.5..0.5. Sizes in layer settings
   // are in these units, so a layout looks the same at 1080p and 4K.
+  // When the whole picture spins, P() is turned by the spin angle (uView = its cos, sin):
+  // layers draw their content already rotated, so the corners never run empty. SP() is the
+  // unturned screen position, and SUV() maps a P() position back to a texture coordinate of
+  // the picture drawn so far (effect layers).
   GL.FS_HEAD = `#version 300 es
 precision highp float;
 precision highp int;
@@ -22,11 +26,14 @@ in vec2 vUv;
 out vec4 outColor;
 uniform vec2 uRes;
 uniform float uOpacity;
+uniform vec2 uView;
 #define PI 3.14159265359
 #define TAU 6.28318530718
-vec2 P() { return (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y); }
+vec2 SP() { return (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y); }
+vec2 P() { vec2 s = SP(); return vec2(uView.x * s.x + uView.y * s.y, uView.x * s.y - uView.y * s.x); }
 vec2 HALF() { return 0.5 * uRes / min(uRes.x, uRes.y); }
 float PX() { return 1.0 / min(uRes.x, uRes.y); }
+vec2 SUV(vec2 p) { return vec2(uView.x * p.x - uView.y * p.y, uView.y * p.x + uView.x * p.y) / (2.0 * HALF()) + 0.5; }
 mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
 float hash12(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * 0.1031);

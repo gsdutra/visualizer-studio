@@ -32,7 +32,7 @@ of all four.
 | Look | Endless zoom | Shape masks on top | On beats |
 | --- | --- | --- | --- |
 | Echo Dive | Echo tunnel: everything pours out of the center in fading echoes | Concentric hexagon outlines | Calm |
-| Nested Worlds | The picture holds smaller copies of itself in hexagon windows, forever | Broken-mirror bands | Smooth turns |
+| Nested Worlds | The picture holds smaller copies of itself in hexagon windows, forever, while the whole picture slowly turns (180° per minute) | Broken-mirror bands, plus a big shape now and then (about one every 10 s) that fades in and drifts off-screen over 20–30 s | Smooth turns |
 | Vortex | A spiral of hexagons pouring out of the center | Scattered mixed shapes | Reshuffle |
 | Kaleidoscope | Three-mirror kaleidoscope + echo tunnel | Big random pop-ups: triangles, squares, pentagons, circles, hexagons (filled and outlines) | Calm |
 
@@ -46,7 +46,8 @@ The building blocks are layers you can add to any look (**+ Add layer**):
 - **Shape masks** (effect): geometric windows, filled or as outlines, showing mirrored,
   upside-down, rotated, zoomed, displaced, tinted or negative pieces of the video.
   - Compositions: random pop-ups (shapes appear at random spots and sizes, then fade and come back
-    elsewhere), constellation, concentric, mosaic grid, orbit or broken-mirror shards.
+    elsewhere), slow drifters (a shape now and then, at random moments, that fades in and drifts until
+    it has left the screen), constellation, concentric, mosaic grid, orbit or broken-mirror shards.
   - Shapes: triangles, squares, pentagons, circles, hexagons, diamonds and stars, each filled or as an
     outline. Choose which ones go in the mix.
   - On beats they can stay calm, snap-rotate (with adjustable smoothness), reshuffle what each window
@@ -54,6 +55,11 @@ The building blocks are layers you can add to any look (**+ Add layer**):
 
 **Effect layers change everything listed below them** in the layer list. Move them up or down to
 choose what they affect. Shape masks are meant to be the top layer.
+
+**Spin the whole picture** (Effects tab → Camera) slowly turns everything, in degrees per minute.
+There are no empty corners and it doesn't slow down rendering, because every layer draws itself
+already turned. Logo, text, spectrum and background layers stay upright by default; each layer has a
+"Stay upright when the picture spins" switch.
 
 ## How the audio reactions work
 

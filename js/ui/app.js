@@ -903,7 +903,10 @@
         return obj === L && vert() && L.v ? Object.assign({}, L, L.v) : obj;
       },
       defaultOf(obj, key) {
-        return obj === L ? (key === 'opacity' ? 1 : def.defaults[key]) : undefined;
+        if (obj !== L) return undefined;
+        if (key === 'opacity') return 1;
+        if (key === 'upright') return !!def.upright;
+        return def.defaults[key];
       },
       palette: () => app.project.palette,
       addMeter,
@@ -951,6 +954,7 @@
       items: [
         { key: 'opacity', type: 'range', label: 'Opacity', min: 0, max: 1, step: 0.01, fmt: 'pct' },
         { key: 'blend', type: 'select', label: 'Blend mode', options: [['normal', 'Normal'], ['add', 'Add (glowy)'], ['screen', 'Screen (soft light)'], ['multiply', 'Multiply (darken)']] },
+        { key: 'upright', type: 'toggle', label: 'Stay upright when the picture spins', show: () => !!app.project.fx.camera.spin },
       ],
     };
     VG.ui.controls.build(body, [...def.controls, common], L, layerCtx(L));
@@ -967,8 +971,11 @@
     VG.ui.controls.build(body, VG.project.FX_CONTROLS, fx, {
       get: (o, k) => o[k],
       set: (o, k, v) => {
+        // Layers show "Stay upright when the picture spins" only while the picture spins.
+        const spinSwitched = o === fx.camera && k === 'spin' && !o.spin !== !v;
         o[k] = v;
         edited();
+        if (spinSwitched) refreshEditorChips();
       },
       view: (o) => o,
       defaultOf: (o, k) => {

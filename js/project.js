@@ -22,7 +22,7 @@
 
   const FX_DEFAULTS = {
     bloom: { enabled: true, threshold: 0.6, intensity: 0.5, radius: 1, react: B('bass', { release: 0.25 }), reactAmount: 0.3 },
-    camera: { shake: 0, shakeSpeed: 12, zoom: 0, rotate: 0, react: B('kick', { release: 0.18, threshold: 0.5 }), shakeReact: 0, zoomReact: 0, rotateReact: 0 },
+    camera: { spin: 0, shake: 0, shakeSpeed: 12, zoom: 0, rotate: 0, react: B('kick', { release: 0.18, threshold: 0.5 }), shakeReact: 0, zoomReact: 0, rotateReact: 0 },
     chroma: { amount: 0, react: B('kick', { release: 0.15, threshold: 0.5 }), reactAmount: 0 },
     glitch: { amount: 0, react: B('snare', { release: 0.12 }), reactAmount: 0 },
     flash: { color: '#ffffff', amount: 0, react: B('kick', { release: 0.12, threshold: 0.5 }), reactAmount: 0 },
@@ -62,9 +62,10 @@
       ],
     },
     {
-      group: 'Camera shake & punch',
+      group: 'Camera: spin, shake & punch',
       fx: 'camera',
       items: [
+        { key: 'spin', type: 'range', label: 'Spin the whole picture', min: -720, max: 720, step: 5, fmt: 'degmin', hint: () => 'Degrees per minute: 180 = half a turn per minute. Negative = counter-clockwise.' },
         { key: 'react', type: 'binding', label: 'Listens to' },
         { key: 'shakeReact', type: 'range', label: 'Shake on hits', min: 0, max: 0.08, step: 0.001 },
         { key: 'zoomReact', type: 'range', label: 'Zoom punch', min: 0, max: 0.3, step: 0.002, fmt: 'pct' },
@@ -160,6 +161,7 @@
       enabled: true,
       opacity: 1,
       blend: def.blend || 'normal',
+      upright: !!def.upright,
       seed: Math.floor(Math.random() * 1e6),
     };
     const L = U.withDefaults(Object.assign(base, U.clone(def.defaults)), over);
@@ -173,7 +175,7 @@
       .filter((L) => L && VG.layerTypes[L.type])
       .map((L) => {
         const def = VG.layerTypes[L.type];
-        const base = { id: L.id || U.uid(), type: L.type, name: def.label, enabled: true, opacity: 1, blend: def.blend || 'normal', seed: 1 };
+        const base = { id: L.id || U.uid(), type: L.type, name: def.label, enabled: true, opacity: 1, blend: def.blend || 'normal', upright: !!def.upright, seed: 1 };
         const out = U.withDefaults(Object.assign(base, U.clone(def.defaults)), L);
         if (out.react) out.react = U.withDefaults(B('none'), out.react);
         return out;

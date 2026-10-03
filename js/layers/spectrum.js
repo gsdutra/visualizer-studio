@@ -263,6 +263,7 @@ void main() {
 
   VG.registerLayer({
     type: 'spectrum',
+    upright: true,
     label: 'Spectrum',
     icon: 'spectrum',
     blurb: 'Audio bars, circular spectrum, layered ring or waveform.',
